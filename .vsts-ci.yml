@@ -1,0 +1,38 @@
+resources:
+- repo: self
+  fetchDepth: 15
+
+trigger:
+  branches:
+    include:
+    - master
+  paths:
+    include:
+    - src/logic/*
+
+name: $(BuildDefinitionName)_$(Date:yyyyMMdd)$(Rev:.rr)-$(BuildId)
+
+phases:
+- template: .build.yml
+  parameters:
+    name: Windows
+    queue: Hosted Windows 2019 with VS2019
+    publishToPath: '$(Build.ArtifactStagingDirectory)'
+    buildPath: .\src\logic\build.bat
+    buildVerbosity: minimal
+    BuildDatabasePrefix: 'windows'
+    BuildApimConsumptionDatabase: 'winapimconsumption'
+
+- template: .build.yml
+  parameters:
+    name: Linux
+    queue: Hosted Ubuntu 1604
+    publishToPath: ''
+    buildPath: ./src/logic/build.sh
+    buildVerbosity: minimal
+    BuildDatabasePrefix: 'linux'
+    BuildApimConsumptionDatabase: 'linuxapimconsumption'
+
+- template: .build-cpr-serviceplatform.yml
+  parameters:
+    name: Cpr_ServicePlatform

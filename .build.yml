@@ -1,0 +1,48 @@
+parameters:
+  name: ''
+  queue: ''
+  buildPath: ''
+  publishToPath: ''
+  buildDatabasePrefix: ''
+  buildApimConsumptionDatabase: ''
+  buildVerbosity: 'minimal'
+  endPoint: '$(KMD_LOGIC_API_DocumentDb:EndPoint)'
+  authorizationKey: '$(KMD_LOGIC_API_DocumentDb:AuthorizationKey)'
+
+phases:
+- phase: ${{ parameters.name }}
+  queue: ${{ parameters.queue }}
+  steps:
+  - task: UseDotNet@2
+    displayName: Install dotnet SDK
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+      workingDirectory: ./src/logic
+      installationPath: $(Agent.ToolsDirectory)/dotnet  
+
+  - task: AzureCLI@1
+    displayName: Run build script (build.ps1)
+    env:
+      AssentNonInteractive: true
+    inputs:
+      azureSubscription: 'LoGIC DEV (7940b735-ab20-47f7-9edc-c24ed0336473)'
+      scriptPath: ${{ parameters.buildPath }}
+      ${{ if ne(parameters.publishToPath, '') }}:
+        arguments: ${{ format('-publish "{0}" -BuildVerbosity "{1}" -BuildDatabasePrefix "{2}" -BuildApimConsumptionDatabase "{3}"', parameters.publishToPath, parameters.buildVerbosity, parameters.buildDatabasePrefix, parameters.buildApimConsumptionDatabase) }}
+      ${{ if eq(parameters.publishToPath, '') }}:
+        arguments: ${{ format('-BuildVerbosity {0} -BuildDatabasePrefix "{1}" -BuildApimConsumptionDatabase "{2}', parameters.buildVerbosity, parameters.buildDatabasePrefix, parameters.buildApimConsumptionDatabase) }}
+
+  - task: PowerShell@2
+    displayName: Clean up database
+    condition: always()
+    inputs:
+      filePath: ./src/logic/cleanupdatabase.ps1
+
+  - task: PublishTestResults@2
+    displayName: Publish test results
+    condition: succeededOrFailed()
+    inputs:
+      testRunner: vSTest
+      testRunTitle: ${{ format('Tests on {0}', parameters.name) }}
+      testResultsFiles: '**/TestResults/*.trx'
